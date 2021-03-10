@@ -5,6 +5,14 @@ import PropTypes from "prop-types";
 import { connect } from "react-redux";
 import { t } from "ttag";
 
+import {
+  doesOperatorExist,
+  getOperatorByTypeAndName,
+  STRING,
+  NUMBER,
+  PRIMARY_KEY,
+} from "metabase/lib/schema_metadata";
+
 import PopoverWithTrigger from "metabase/components/PopoverWithTrigger";
 import Icon from "metabase/components/Icon";
 import DateSingleWidget from "./widgets/DateSingleWidget";
@@ -249,10 +257,11 @@ function Widget({
   parameters,
   dashboard,
 }) {
+  const { type } = parameter;
   const DateWidget = DATE_WIDGETS[parameter.type];
   const fields = getFields(metadata, parameter);
-  const operator = getFieldOperator(parameter.type, fields);
-
+  // `type` can be null
+  const operator = type ? getFieldOperator(type, fields) : undefined;
   if (DateWidget) {
     return (
       <DateWidget value={value} setValue={setValue} onClose={onPopoverClose} />
@@ -294,14 +303,31 @@ Widget.propTypes = {
   onFocusChanged: PropTypes.func.isRequired,
 };
 
-function getFieldOperator(parameterType, fields) {
-  const [, operatorType] = parameterType.split("/");
-  const [field] = fields;
-  const operators = field ? field.filterOperators() : [];
-  return (
-    _.findWhere(operators, { name: operatorType }) ||
-    _.findWhere(operators, { name: "=" })
-  );
+function getFieldOperator(type) {
+  const [parameterType, maybeOperatorName] = type.split("/");
+  const operatorType = getOperatorType(parameterType);
+  const operatorName = doesOperatorExist(maybeOperatorName)
+    ? maybeOperatorName
+    : "=";
+
+  return getOperatorByTypeAndName(operatorType, operatorName);
+}
+
+function getOperatorType(parameterType) {
+  switch (parameterType) {
+    case "number":
+      return NUMBER;
+    case "location":
+    case "category":
+      return STRING;
+    case "id":
+      // id can technically be a FK but doesn't matter as both use default filter operators
+      return PRIMARY_KEY;
+    default:
+      throw new Error(
+        `No mapped operator type for given parameterType: ${parameterType}`,
+      );
+  }
 }
 
 function getWidgetDefinition(metadata, parameter) {
