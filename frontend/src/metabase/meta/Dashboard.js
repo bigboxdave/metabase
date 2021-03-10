@@ -122,15 +122,9 @@ export const PARAMETER_OPTIONS: ParameterOption[] = [
     type: "id",
     name: t`ID`,
   },
-  ...buildOperatorSubtypeOptions(
-    "location",
-    PARAMETER_OPERATOR_TYPES["string"],
-  ),
-  ...buildOperatorSubtypeOptions(
-    "category",
-    PARAMETER_OPERATOR_TYPES["string"],
-  ),
-  ...buildOperatorSubtypeOptions("number", PARAMETER_OPERATOR_TYPES["number"]),
+  ...buildOperatorSubtypeOptions("location", "string"),
+  ...buildOperatorSubtypeOptions("category", "string"),
+  ...buildOperatorSubtypeOptions("number", "number"),
 ];
 
 export type ParameterSection = {
@@ -185,8 +179,8 @@ for (const option of PARAMETER_OPTIONS) {
   }
 }
 
-function buildOperatorSubtypeOptions(section, operatorOptions) {
-  return operatorOptions.map(option => ({
+function buildOperatorSubtypeOptions(section, operatorType) {
+  return PARAMETER_OPERATOR_TYPES[operatorType].map(option => ({
     ...option,
     type: `${section}/${option.operator}`,
   }));
