@@ -1,131 +1,22 @@
 import Question from "metabase-lib/lib/Question";
-
 import type Metadata from "metabase-lib/lib/metadata/Metadata";
-import type Field from "metabase-lib/lib/metadata/Field";
-import type { TemplateTag } from "metabase-types/types/Query";
 import type { Card } from "metabase-types/types/Card";
 import type {
   ParameterOption,
   Parameter,
-  ParameterType,
   ParameterMappingUIOption,
 } from "metabase-types/types/Parameter";
 
-import Dimension from "metabase-lib/lib/Dimension";
-import Variable, { TemplateTagVariable } from "metabase-lib/lib/Variable";
+import {
+  PARAMETER_OPTIONS,
+  dimensionFilterForParameter,
+  variableFilterForParameter,
+} from "metabase/meta/Parameter";
 
 import { t } from "ttag";
 import _ from "underscore";
 
 import { slugify } from "metabase/lib/formatting";
-
-type DimensionFilter = (dimension: Dimension) => boolean;
-type TemplateTagFilter = (tag: TemplateTag) => boolean;
-type FieldFilter = (field: Field) => boolean;
-type VariableFilter = (variable: Variable) => boolean;
-
-export const PARAMETER_OPERATOR_TYPES = {
-  number: [
-    {
-      operator: "=",
-      name: t`Equal to`,
-    },
-    {
-      operator: "!=",
-      name: t`Not equal to`,
-    },
-    {
-      operator: "between",
-      name: t`Between`,
-    },
-    {
-      operator: ">=",
-      name: t`Greater than or equal to`,
-    },
-    {
-      operator: "<=",
-      name: t`Less than or equal to`,
-    },
-    // {
-    //   operator: "all-options",
-    //   name: t`All options`,
-    //   description: t`Contains all of the above`,
-    // },
-  ],
-  string: [
-    {
-      operator: "=",
-      name: t`Matches exactly`,
-      description: t`Use a dropdown or search box to pick one or more exact matches.`,
-    },
-    {
-      operator: "contains",
-      name: t`Contains`,
-      description: t`Match values that contain the entered text.`,
-    },
-    {
-      operator: "does-not-contain",
-      name: t`Does not contain`,
-      description: t`Filter out values that contain the entered text.`,
-    },
-    {
-      operator: "starts-with",
-      name: t`Starts with`,
-      description: t`Match values that begin with the entered text.`,
-    },
-    {
-      operator: "ends-with",
-      name: t`Ends with`,
-      description: t`Match values that end with the entered text.`,
-    },
-    // {
-    //   operator: "all-options",
-    //   name: t`All options`,
-    //   description: t`Users can pick from any of the above`,
-    // },
-  ],
-};
-
-export const PARAMETER_OPTIONS: ParameterOption[] = [
-  {
-    type: "date/month-year",
-    name: t`Month and Year`,
-    description: t`Like January, 2016`,
-  },
-  {
-    type: "date/quarter-year",
-    name: t`Quarter and Year`,
-    description: t`Like Q1, 2016`,
-  },
-  {
-    type: "date/single",
-    name: t`Single Date`,
-    description: t`Like January 31, 2016`,
-  },
-  {
-    type: "date/range",
-    name: t`Date Range`,
-    description: t`Like December 25, 2015 - February 14, 2016`,
-  },
-  {
-    type: "date/relative",
-    name: t`Relative Date`,
-    description: t`Like "the last 7 days" or "this month"`,
-  },
-  {
-    type: "date/all-options",
-    name: t`Date Filter`,
-    menuName: t`All Options`,
-    description: t`Contains all of the above`,
-  },
-  {
-    type: "id",
-    name: t`ID`,
-  },
-  ...buildOperatorSubtypeOptions("location", "string"),
-  ...buildOperatorSubtypeOptions("category", "string"),
-  ...buildOperatorSubtypeOptions("number", "number"),
-];
 
 export type ParameterSection = {
   id: string,
@@ -177,82 +68,6 @@ for (const option of PARAMETER_OPTIONS) {
     section.options = section.options || [];
     section.options.push(option);
   }
-}
-
-function buildOperatorSubtypeOptions(section, operatorType) {
-  return PARAMETER_OPERATOR_TYPES[operatorType].map(option => ({
-    ...option,
-    type: `${section}/${option.operator}`,
-  }));
-}
-
-function fieldFilterForParameter(parameter: Parameter) {
-  return fieldFilterForParameterType(parameter.type);
-}
-
-function fieldFilterForParameterType(
-  parameterType: ParameterType,
-): FieldFilter {
-  const [type] = parameterType.split("/");
-  switch (type) {
-    case "date":
-      return (field: Field) => field.isDate();
-    case "id":
-      return (field: Field) => field.isID();
-    case "category":
-      return (field: Field) => field.isCategory();
-    case "location":
-      return (field: Field) =>
-        field.isCity() ||
-        field.isState() ||
-        field.isZipCode() ||
-        field.isCountry();
-    case "number":
-      return (field: Field) => field.isNumber();
-  }
-
-  return (field: Field) => false;
-}
-
-export function parameterOptionsForField(field: Field): ParameterOption[] {
-  return PARAMETER_OPTIONS.filter(option =>
-    fieldFilterForParameterType(option.type)(field),
-  );
-}
-
-export function dimensionFilterForParameter(
-  parameter: Parameter,
-): DimensionFilter {
-  const fieldFilter = fieldFilterForParameter(parameter);
-  return dimension => fieldFilter(dimension.field());
-}
-
-export function variableFilterForParameter(
-  parameter: Parameter,
-): VariableFilter {
-  const tagFilter = tagFilterForParameter(parameter);
-  return variable => {
-    if (variable instanceof TemplateTagVariable) {
-      const tag = variable.tag();
-      return tag ? tagFilter(tag) : false;
-    }
-    return false;
-  };
-}
-
-function tagFilterForParameter(parameter: Parameter): TemplateTagFilter {
-  const [type, subtype] = parameter.type.split("/");
-  switch (type) {
-    case "date":
-      return (tag: TemplateTag) => subtype === "single" && tag.type === "date";
-    case "location":
-      return (tag: TemplateTag) => tag.type === "number" || tag.type === "text";
-    case "id":
-      return (tag: TemplateTag) => tag.type === "number" || tag.type === "text";
-    case "category":
-      return (tag: TemplateTag) => tag.type === "number" || tag.type === "text";
-  }
-  return (tag: TemplateTag) => false;
 }
 
 export function getParameterMappingOptions(
