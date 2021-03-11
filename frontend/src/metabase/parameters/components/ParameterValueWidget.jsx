@@ -260,8 +260,6 @@ function Widget({
   const { type } = parameter;
   const DateWidget = DATE_WIDGETS[parameter.type];
   const fields = getFields(metadata, parameter);
-  // `type` can be null
-  const operator = type ? getFieldOperator(type, fields) : undefined;
   if (DateWidget) {
     return (
       <DateWidget value={value} setValue={setValue} onClose={onPopoverClose} />
@@ -280,7 +278,7 @@ function Widget({
         isEditing={isEditing}
         commitImmediately={commitImmediately}
         focusChanged={onFocusChanged}
-        operator={operator}
+        operator={getFieldOperator(type, fields)}
       />
     );
   } else {
@@ -324,9 +322,7 @@ function getOperatorType(parameterType) {
       // id can technically be a FK but doesn't matter as both use default filter operators
       return PRIMARY_KEY;
     default:
-      throw new Error(
-        `No mapped operator type for given parameterType: ${parameterType}`,
-      );
+      return undefined;
   }
 }
 
